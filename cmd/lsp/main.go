@@ -31,7 +31,11 @@ func main() {
 		}
 
 		resp := handleRequest(req)
-		respBytes, _ := json.Marshal(resp)
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Marshal error: %v\n", err)
+			continue
+		}
 		writeMessage(writer, respBytes)
 	}
 }
@@ -83,12 +87,14 @@ func handleRequest(req Request) Response {
 		return Response{ID: id, Result: Hover{Contents: "SFDL Configuration"}}
 	case "textDocument/completion":
 		return Response{ID: id, Result: CompletionList{
-			Items: []CompletionItem{
-				{Label: "provider"},
-				{Label: "registry"},
-				{Label: "function"},
-				{Label: "SFDL"},
-			},
+			Items: func() []CompletionItem {
+				types := sfdl.GetRegisteredBlockTypes()
+				items := make([]CompletionItem, 0, len(types))
+				for _, t := range types {
+					items = append(items, CompletionItem{Label: t})
+				}
+				return items
+			}(),
 		}}
 	default:
 		return Response{ID: id}
@@ -96,15 +102,15 @@ func handleRequest(req Request) Response {
 }
 
 type Request struct {
-	ID     interface{}     `json:"id"`
+	ID     any             `json:"id"`
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
 }
 
 type Response struct {
-	ID     interface{} `json:"id"`
-	Result any         `json:"result,omitempty"`
-	Error  any         `json:"error,omitempty"`
+	ID     any `json:"id"`
+	Result any `json:"result,omitzero"`
+	Error  any `json:"error,omitzero"`
 }
 
 type InitializeResult struct {
@@ -118,7 +124,7 @@ type ServerCapabilities struct {
 }
 
 type Hover struct {
-	Contents interface{} `json:"contents"`
+	Contents any `json:"contents"`
 }
 
 type CompletionList struct {

@@ -1,10 +1,12 @@
 package sfdl
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	sfdlblocks "github.com/lightDproject/SFDL/blocks"
 )
 
 type Config struct {
@@ -16,11 +18,27 @@ type File struct {
 	*hcl.File
 }
 
-type Block struct {
-	Type       string
-	Labels     []string
-	Attributes hclsyntax.Attributes
-	Body       *hclsyntax.Body
+func (f *File) ProcessBlocks(ctx context.Context) error {
+	body, err := f.SyntaxBody()
+	if err != nil {
+		return err
+	}
+	for _, hclBlock := range body.Blocks {
+		b := &sfdlblocks.Block{
+			Type:       hclBlock.Type,
+			Labels:     hclBlock.Labels,
+			Attributes: hclBlock.Body.Attributes,
+			Body:       hclBlock.Body,
+		}
+		if err := sfdlblocks.ProcessBlock(b); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GetRegisteredBlockTypes() []string {
+	return sfdlblocks.GetRegisteredBlockTypes()
 }
 
 type Parser struct {
